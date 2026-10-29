@@ -60,37 +60,29 @@
       rgba(60,40,25,.05) 40%,
       rgba(50,32,20,.55) 100%);
   }
-  .hero-content{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center}
+  .hero-content{position:relative;z-index:1}
   .hero-label{
-    display:flex;align-items:center;gap:14px;
-    font-size:10px;letter-spacing:.42em;
-    color:rgba(255,255,255,.8);
-    margin-bottom:24px;
+    font-size:11px;letter-spacing:.5em;
+    color:rgba(255,255,255,.85);
+    padding-left:.5em;margin-bottom:20px;
   }
-  .hero-label::before,.hero-label::after{
-    content:'';width:26px;height:1px;
-    background:linear-gradient(90deg,transparent,rgba(255,255,255,.55));
-  }
-  .hero-label::after{transform:scaleX(-1)}
   .hero-names{
     font-family:var(--serif);
-    font-size:31px;font-weight:400;
-    letter-spacing:.12em;
-    text-shadow:0 2px 18px rgba(0,0,0,.3);
-    line-height:1.15;
-    display:flex;align-items:baseline;justify-content:center;gap:10px;
-    white-space:nowrap;
+    font-size:44px;font-weight:500;
+    letter-spacing:.08em;
+    text-shadow:0 2px 20px rgba(0,0,0,.25);
+    line-height:1.2;
   }
   .hero-names .amp{
-    font-size:15px;font-style:italic;
+    display:block;
+    font-size:20px;font-style:italic;
     color:var(--gold-light);
-    letter-spacing:0;margin:0;display:inline-block;
-    transform:translateY(-2px);
+    margin:10px 0;letter-spacing:0;
   }
   .hero-date{
-    margin-top:14px;
-    font-size:11px;letter-spacing:.32em;
-    color:rgba(255,255,255,.82);
+    margin-top:18px;
+    font-size:13px;letter-spacing:.3em;
+    color:rgba(255,255,255,.92);
   }
   .hero-scroll{
     position:absolute;bottom:20px;left:50%;transform:translateX(-50%);
@@ -459,7 +451,11 @@
     <div class="hero-bg"></div>
     <div class="hero-content">
       <div class="hero-label">WEDDING INVITATION</div>
-      <h1 class="hero-names">朱正军<span class="amp">&amp;</span>吴凤</h1>
+      <h1 class="hero-names">
+        朱正军
+        <span class="amp">&amp;</span>
+        吴&nbsp;凤
+      </h1>
       <div class="hero-date">2027 · 01 · 31 &nbsp;·&nbsp; 星期日</div>
     </div>
     <div class="hero-scroll">SCROLL</div>
