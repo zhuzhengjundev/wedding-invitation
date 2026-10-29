@@ -316,6 +316,12 @@
     outline:none;margin-bottom:8px;
   }
   .rsvp-form input:focus,.rsvp-form textarea:focus{border-bottom-color:var(--gold)}
+  .rsvp-form input.err{border-bottom-color:#B3452F}
+  .field-err{
+    display:none;font-size:11px;color:#B3452F;
+    margin:0 0 6px;letter-spacing:.02em;
+  }
+  .field-err.show{display:block}
   .rsvp-form textarea{resize:none;height:70px}
   .rsvp-form label{
     display:block;font-size:11px;letter-spacing:.2em;
@@ -629,11 +635,15 @@
     <div class="section-label">WISHES</div>
     <h2 class="section-title">送上祝福</h2>
     <div class="divider"><span class="line"></span><span class="dot"></span><span class="line"></span></div>
-    <form class="rsvp-form" onsubmit="event.preventDefault();showThanks(this);">
-      <label>您的称呼</label>
-      <input type="text" placeholder="请输入姓名" required>
-      <label>祝福语</label>
-      <textarea placeholder="写下您对新人的祝福……"></textarea>
+    <form class="rsvp-form" novalidate onsubmit="event.preventDefault();submitBlessing(this);">
+      <label for="rsvp-name">您的称呼</label>
+      <input id="rsvp-name" name="name" type="text" placeholder="请输入姓名" maxlength="20" autocomplete="name" required>
+      <div class="field-err" id="name-err"></div>
+      <label for="rsvp-phone">手机号</label>
+      <input id="rsvp-phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="11" placeholder="请输入 11 位手机号" required>
+      <div class="field-err" id="phone-err"></div>
+      <label for="rsvp-msg">祝福语</label>
+      <textarea id="rsvp-msg" name="message" placeholder="写下您对新人的祝福……" maxlength="300"></textarea>
       <button class="submit-btn" type="submit">送上祝福</button>
     </form>
   </section>
@@ -715,6 +725,120 @@
   }
   window.addEventListener('scroll', onScroll, {passive:true});
   onScroll();
+
+  // ===== 祝福提交（手机号校验 + 腾讯云开发 PostgreSQL REST） =====
+  const CB_ORIGIN = 'https://ashamed-ant-d7gztvbxw662e17cb.api.tcloudbasegateway.com';
+  const PHONE_RE = /^1[3-9]\d{9}$/;
+  let cbToken = null;
+
+  function cbDeviceId(){
+    const k = 'wedding_device_id';
+    let id = localStorage.getItem(k);
+    if(!id){
+      id = 'wedding-' + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+      localStorage.setItem(k, id);
+    }
+    return id;
+  }
+
+  function cbSignIn(){
+    if(cbToken) return Promise.resolve(cbToken);
+    const cached = sessionStorage.getItem('cb_token');
+    if(cached){ cbToken = cached; return Promise.resolve(cbToken); }
+    return fetch(CB_ORIGIN + '/auth/v1/signin/anonymously', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-device-id':cbDeviceId()},
+      body:'{}'
+    }).then(r=>r.json()).then(d=>{
+      if(!d.access_token) throw new Error('匿名登录失败');
+      cbToken = d.access_token;
+      sessionStorage.setItem('cb_token', cbToken);
+      return cbToken;
+    });
+  }
+
+  function cbInsert(payload, retried){
+    return cbSignIn().then(token=>
+      fetch(CB_ORIGIN + '/v1/rdb/rest/blessings', {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization':'Bearer ' + token,
+          'Prefer':'return=minimal'
+        },
+        body: JSON.stringify(payload)
+      }).then(r=>{
+        if(r.status === 401 && !retried){
+          cbToken = null;
+          sessionStorage.removeItem('cb_token');
+          return cbInsert(payload, true);
+        }
+        if(!r.ok) throw new Error('写入失败 HTTP ' + r.status);
+        return true;
+      })
+    );
+  }
+
+  function setErr(input, errEl, msg){
+    if(msg){
+      errEl.textContent = msg;
+      errEl.classList.add('show');
+      input.classList.add('err');
+    }else{
+      errEl.classList.remove('show');
+      input.classList.remove('err');
+    }
+  }
+
+  const phoneInput = document.getElementById('rsvp-phone');
+  if(phoneInput){
+    phoneInput.addEventListener('input', function(){
+      this.value = this.value.replace(/\D/g,'').slice(0,11);
+      if(this.classList.contains('err')) setErr(this, document.getElementById('phone-err'), '');
+    });
+  }
+
+  function submitBlessing(form){
+    const nameEl = form.querySelector('[name=name]');
+    const phoneEl = form.querySelector('[name=phone]');
+    const msgEl = form.querySelector('[name=message]');
+    const name = nameEl.value.trim();
+    const phone = phoneEl.value.replace(/\D/g,'');
+    const message = msgEl.value.trim();
+    let ok = true;
+
+    if(name.length < 1 || name.length > 20){
+      setErr(nameEl, document.getElementById('name-err'), '请填写您的称呼（20 字以内）');
+      ok = false;
+    }else{
+      setErr(nameEl, document.getElementById('name-err'), '');
+    }
+    if(!PHONE_RE.test(phone)){
+      setErr(phoneEl, document.getElementById('phone-err'), '请输入正确的 11 位手机号');
+      ok = false;
+    }else{
+      setErr(phoneEl, document.getElementById('phone-err'), '');
+    }
+    if(!ok){ (name.length<1||name.length>20 ? nameEl : phoneEl).focus(); return; }
+
+    const btn = form.querySelector('.submit-btn');
+    btn.disabled = true;
+    btn.textContent = '发送中…';
+
+    cbInsert({
+      name: name,
+      phone: phone,
+      message: message,
+      ua: navigator.userAgent.slice(0,300)
+    }).catch(err=>{
+      // 网络异常不阻塞访客
+      console.error('祝福提交失败', err);
+    }).then(()=>{
+      btn.disabled = false;
+      btn.textContent = '送上祝福';
+      showThanks(form);
+    });
+  }
 
   function showThanks(form){
     document.getElementById('thanksModal').classList.add('show');
