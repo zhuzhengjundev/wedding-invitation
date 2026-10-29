@@ -726,57 +726,19 @@
   window.addEventListener('scroll', onScroll, {passive:true});
   onScroll();
 
-  // ===== 祝福提交（手机号校验 + 腾讯云开发 PostgreSQL REST） =====
-  const CB_ORIGIN = 'https://ashamed-ant-d7gztvbxw662e17cb.api.tcloudbasegateway.com';
+  // ===== 祝福提交（手机号校验 + 云函数中转写入 blessings 表） =====
+  const BLESSING_API = 'https://ashamed-ant-d7gztvbxw662e17cb-1258206454.ap-shanghai.app.tcloudbase.com/blessing';
   const PHONE_RE = /^1[3-9]\d{9}$/;
-  let cbToken = null;
 
-  function cbDeviceId(){
-    const k = 'wedding_device_id';
-    let id = localStorage.getItem(k);
-    if(!id){
-      id = 'wedding-' + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
-      localStorage.setItem(k, id);
-    }
-    return id;
-  }
-
-  function cbSignIn(){
-    if(cbToken) return Promise.resolve(cbToken);
-    const cached = sessionStorage.getItem('cb_token');
-    if(cached){ cbToken = cached; return Promise.resolve(cbToken); }
-    return fetch(CB_ORIGIN + '/auth/v1/signin/anonymously', {
+  function cbInsert(payload){
+    return fetch(BLESSING_API, {
       method:'POST',
-      headers:{'Content-Type':'application/json','x-device-id':cbDeviceId()},
-      body:'{}'
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
     }).then(r=>r.json()).then(d=>{
-      if(!d.access_token) throw new Error('匿名登录失败');
-      cbToken = d.access_token;
-      sessionStorage.setItem('cb_token', cbToken);
-      return cbToken;
+      if(!d.ok) throw new Error('写入失败 ' + (d.error || ''));
+      return true;
     });
-  }
-
-  function cbInsert(payload, retried){
-    return cbSignIn().then(token=>
-      fetch(CB_ORIGIN + '/v1/rdb/rest/blessings', {
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'Authorization':'Bearer ' + token,
-          'Prefer':'return=minimal'
-        },
-        body: JSON.stringify(payload)
-      }).then(r=>{
-        if(r.status === 401 && !retried){
-          cbToken = null;
-          sessionStorage.removeItem('cb_token');
-          return cbInsert(payload, true);
-        }
-        if(!r.ok) throw new Error('写入失败 HTTP ' + r.status);
-        return true;
-      })
-    );
   }
 
   function setErr(input, errEl, msg){
